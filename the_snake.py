@@ -1,4 +1,4 @@
-from random import choice, randint
+from random import randint
 
 import pygame
 
@@ -139,7 +139,7 @@ class Snake(GameObject):
         """Сбрасывает змейку в начальное состояние."""
         self.position = ((SCREEN_WIDTH // 2), (SCREEN_HEIGHT // 2))
         self.positions = [self.position]
-        self.direction = choice([RIGHT])
+        self.direction = RIGHT
         self.next_direction = None
         self.last = None
 
