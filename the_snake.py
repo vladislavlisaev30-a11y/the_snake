@@ -61,12 +61,17 @@ class Apple(GameObject):
         if position is None:
             self.randomize_position()
 
-    def randomize_position(self):
+    def randomize_position(self, snake_positions=None):
         """Устанавливает случайное положение яблока на поле."""
-        self.position = (
-            randint(0, GRID_WIDTH - 1) * GRID_SIZE,
-            randint(0, GRID_HEIGHT - 1) * GRID_SIZE,
-        )
+        occupied = snake_positions or ()
+        while True:
+            position = (
+                randint(0, GRID_WIDTH - 1) * GRID_SIZE,
+                randint(0, GRID_HEIGHT - 1) * GRID_SIZE,
+            )
+            if position not in occupied:
+                self.position = position
+                return
 
     def draw(self):
         """Отрисовывает яблоко на игровом поле."""
@@ -114,13 +119,14 @@ class Snake(GameObject):
         self.positions.insert(0, new_head)
         self.position = new_head
         if self.apple is not None and new_head == self.apple.position:
-            self.apple.randomize_position()
+            self.apple.randomize_position(self.positions)
+            self.last = None
         else:
             self.last = self.positions.pop()
 
     def draw(self):
         """Отрисовывает змейку на игровом поле."""
-        for position in self.positions[:-1]:
+        for position in self.positions[1:]:
             rect = pygame.Rect(position, (GRID_SIZE, GRID_SIZE))
             pygame.draw.rect(screen, self.body_color, rect)
             pygame.draw.rect(screen, BORDER_COLOR, rect, 1)
@@ -142,6 +148,9 @@ class Snake(GameObject):
         self.direction = RIGHT
         self.next_direction = None
         self.last = None
+        apple = getattr(self, 'apple', None)
+        if apple is not None and apple.position in self.positions:
+            apple.randomize_position(self.positions)
 
 
 def handle_keys(game_object):
@@ -166,8 +175,9 @@ def handle_keys(game_object):
 def main():
     """Основной игровой цикл."""
     pygame.init()
-    apple = Apple()
     snake = Snake()
+    apple = Apple()
+    apple.randomize_position(snake.positions)
     snake.apple = apple
 
     while True:
