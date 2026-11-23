@@ -123,6 +123,7 @@ class Snake(GameObject):
             self.last = None
         else:
             self.last = self.positions.pop()
+        self.length = len(self.positions)
 
     def draw(self):
         """Отрисовывает змейку на игровом поле."""
@@ -145,6 +146,7 @@ class Snake(GameObject):
         """Сбрасывает змейку в начальное состояние."""
         self.position = ((SCREEN_WIDTH // 2), (SCREEN_HEIGHT // 2))
         self.positions = [self.position]
+        self.length = 1
         self.direction = RIGHT
         self.next_direction = None
         self.last = None
