@@ -14,8 +14,8 @@ DOWN = (0, 1)
 LEFT = (-1, 0)
 RIGHT = (1, 0)
 
-# Цвет фона - черный:
-BOARD_BACKGROUND_COLOR = (0, 0, 0)
+# Цвет фона - тёмно-синий, чтобы поле не сливалось с рамкой окна:
+BOARD_BACKGROUND_COLOR = (24, 26, 42)
 
 # Цвет границы ячейки
 BORDER_COLOR = (93, 216, 228)
@@ -28,6 +28,10 @@ SNAKE_COLOR = (0, 255, 0)
 
 # Скорость движения змейки:
 SPEED = 20
+# Прибавка к скорости за каждое съеденное яблоко:
+SPEED_STEP = 2
+# Предельная скорость движения змейки:
+MAX_SPEED = 60
 
 # Настройка игрового окна:
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
@@ -183,7 +187,9 @@ def main():
     snake.apple = apple
 
     while True:
-        clock.tick(SPEED)
+        # Чем длиннее змейка, тем быстрее она ползёт.
+        speed = min(SPEED + (snake.length - 1) * SPEED_STEP, MAX_SPEED)
+        clock.tick(speed)
         handle_keys(snake)
         snake.update_direction()
         snake.move()
