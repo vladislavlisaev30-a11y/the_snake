@@ -27,11 +27,11 @@ APPLE_COLOR = (255, 0, 0)
 SNAKE_COLOR = (0, 255, 0)
 
 # Стартовая скорость движения змейки, кадров в секунду:
-SPEED = 8
+SPEED = 6
 # Прибавка к скорости за каждое съеденное яблоко:
 SPEED_STEP = 1
 # Предельная скорость движения змейки:
-MAX_SPEED = 20
+MAX_SPEED = 12
 
 # Настройка игрового окна:
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
@@ -90,8 +90,9 @@ class Snake(GameObject):
     def __init__(self, position=None, body_color=SNAKE_COLOR):
         """Инициализирует змейку."""
         super().__init__(position, body_color)
-        self.apple = None
+        self.apples = []
         self.last = None
+        self.score = 0
         self.reset()
         if position is not None:
             self.position = position
@@ -122,10 +123,19 @@ class Snake(GameObject):
 
         self.positions.insert(0, new_head)
         self.position = new_head
-        if self.apple is not None and new_head == self.apple.position:
-            self.apple.randomize_position(self.positions)
-            self.last = None
-        else:
+        ate_apple = False
+        for apple in self.apples:
+            if new_head == apple.position:
+                other_positions = [
+                    a.position for a in self.apples if a is not apple
+                ]
+                apple.randomize_position(self.positions + other_positions)
+                self.score += 1
+                self.last = None
+                ate_apple = True
+                break
+
+        if not ate_apple:
             self.last = self.positions.pop()
         self.length = len(self.positions)
 
@@ -154,18 +164,27 @@ class Snake(GameObject):
         self.direction = RIGHT
         self.next_direction = None
         self.last = None
-        apple = getattr(self, 'apple', None)
-        if apple is not None and apple.position in self.positions:
-            apple.randomize_position(self.positions)
+        self.score = 0
+        apples = getattr(self, 'apples', [])
+        occupied = list(self.positions)
+        for apple in apples:
+            apple.randomize_position(occupied)
+            occupied.append(apple.position)
 
 
 def handle_keys(game_object):
     """Обрабатывает события клавиатуры и закрытия окна."""
-    for event in pygame.event.get():
+    for event in pygame.event.get([pygame.QUIT, pygame.KEYDOWN]):
         if event.type == pygame.QUIT:
             pygame.quit()
             raise SystemExit
         if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r:
+                game_object.reset()
+                continue
+            if event.key == pygame.K_ESCAPE:
+                pygame.quit()
+                raise SystemExit
             directions = {
                 pygame.K_UP: (UP, DOWN),
                 pygame.K_DOWN: (DOWN, UP),
@@ -178,24 +197,86 @@ def handle_keys(game_object):
                     game_object.next_direction = new_dir
 
 
+def draw_buttons(buttons=None):
+    """Отрисовывает кнопки перезапуска и выхода на игровом поле."""
+    if not pygame.font.get_init():
+        pygame.font.init()
+    btn_restart = pygame.Rect(444, 8, 90, 26)
+    btn_exit = pygame.Rect(542, 8, 90, 26)
+    if isinstance(buttons, dict):
+        btn_restart = buttons.get('restart', btn_restart)
+        btn_exit = buttons.get('exit', btn_exit)
+    elif isinstance(buttons, (list, tuple)) and len(buttons) >= 2:
+        btn_restart, btn_exit = buttons[0], buttons[1]
+
+    font = pygame.font.SysFont('arial', 16)
+    for rect, label in ((btn_restart, 'Заново'), (btn_exit, 'Выход')):
+        pygame.draw.rect(screen, (70, 70, 70), rect)
+        pygame.draw.rect(screen, (255, 255, 255), rect, 1)
+        text = font.render(label, True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=rect.center))
+
+
+def handle_buttons(buttons, snake, apples=None):
+    """Обрабатывает клики мыши по кнопкам управления."""
+    btn_restart = pygame.Rect(444, 8, 90, 26)
+    btn_exit = pygame.Rect(542, 8, 90, 26)
+    if isinstance(buttons, dict):
+        btn_restart = buttons.get('restart', btn_restart)
+        btn_exit = buttons.get('exit', btn_exit)
+    elif isinstance(buttons, (list, tuple)) and len(buttons) >= 2:
+        btn_restart, btn_exit = buttons[0], buttons[1]
+
+    for event in pygame.event.get(pygame.MOUSEBUTTONDOWN):
+        if event.button == 1:
+            if btn_restart.collidepoint(event.pos):
+                snake.reset()
+                if apples and not getattr(snake, 'apples', None):
+                    occupied = list(snake.positions)
+                    for apple in apples:
+                        apple.randomize_position(occupied)
+                        occupied.append(apple.position)
+            elif btn_exit.collidepoint(event.pos):
+                pygame.quit()
+                raise SystemExit
+
+
 def main():
     """Основной игровой цикл."""
     pygame.init()
+    score_font = pygame.font.SysFont('arial', 18)
     snake = Snake()
-    apple = Apple()
-    apple.randomize_position(snake.positions)
-    snake.apple = apple
+    apples = []
+    occupied = list(snake.positions)
+    for _ in range(3):
+        apple = Apple()
+        apple.randomize_position(occupied)
+        occupied.append(apple.position)
+        apples.append(apple)
+    snake.apples = apples
+
+    buttons = {
+        'restart': pygame.Rect(444, 8, 90, 26),
+        'exit': pygame.Rect(542, 8, 90, 26),
+    }
 
     while True:
-        # Чем длиннее змейка, тем быстрее она ползёт.
-        speed = min(SPEED + (snake.length - 1) * SPEED_STEP, MAX_SPEED)
+        speed = min(SPEED + snake.score * SPEED_STEP, MAX_SPEED)
         clock.tick(speed)
         handle_keys(snake)
+        handle_buttons(buttons, snake, apples)
+        pygame.event.clear()
         snake.update_direction()
         snake.move()
         screen.fill(BOARD_BACKGROUND_COLOR)
-        apple.draw()
+        for apple in snake.apples:
+            apple.draw()
         snake.draw()
+        draw_buttons(buttons)
+        score_text = score_font.render(
+            f'Очки: {snake.score}', True, (255, 255, 255)
+        )
+        screen.blit(score_text, (10, 10))
         pygame.display.update()
 
 
